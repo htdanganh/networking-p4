@@ -24,16 +24,16 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    register<bit<9>>(2) ingress_counter_active; 
-    register<bit<9>>(2) ingress_counter_inactive;
+    register<bit<32>>(2) ingress_counter_active; 
+    register<bit<32>>(2) ingress_counter_inactive;
 
     action increment_ingress_counter() {
 
-        bit<9> counter_value;
-        ingress_counter_active.read(counter_value, standard_metadata.ingress_port);
+        bit<32> counter_value;
+        ingress_counter_active.read(counter_value, (bit<32>)standard_metadata.ingress_port);
         
         counter_value = counter_value + 1;
-        ingress_counter_active.write(standard_metadata.ingress_port, counter_value);
+        ingress_counter_active.write((bit<32>)standard_metadata.ingress_port, counter_value);
         
         meta.ingress_counter_value = counter_value;
     }
@@ -72,15 +72,15 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
-    register<bit<9>>(2) egress_counter_active; 
-    register<bit<9>>(2) egress_counter_inactive;
+    register<bit<32>>(2) egress_counter_active; 
+    register<bit<32>>(2) egress_counter_inactive;
 
     action increment_egress_counter() {
-        bit<9> counter_value;
-        egress_counter_active.read(counter_value, standard_metadata.egress_port);
+        bit<32> counter_value;
+        egress_counter_active.read(counter_value, (bit<32>)standard_metadata.egress_port);
         
         counter_value = counter_value + 1;
-        egress_counter_active.write(standard_metadata.egress_port, counter_value);
+        egress_counter_active.write((bit<32>)standard_metadata.egress_port, counter_value);
         
         meta.egress_counter_value = counter_value;
     }
