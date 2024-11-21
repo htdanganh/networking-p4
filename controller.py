@@ -27,29 +27,34 @@ controllers['s3'].table_add('repeater', 'forward', ['1'], ['2'])
 controllers['s3'].table_add('repeater', 'forward', ['2'], ['3'])
 
 def check_counters():
-    for link in topo.get_links():
-        node1, node2 = link
-        port1 = topo.node_to_node_port_num(node1, node2)
-        port2 = topo.node_to_node_port_num(node2, node1)
+    for switch in topo.get_p4switches():
+        neighbors = topo.get_neighbors(switch)
+        for neighbor in neighbors:
+            if neighbor in topo.get_p4switches():  # Ensure the neighbor is a switch
+                port_out = topo.node_to_node_port_num(switch, neighbor)
+                port_in = topo.node_to_node_port_num(neighbor, switch)
 
-        try:
-            count_egress = controllers[node1].register_read("egress_counter_inactive", index=port1)
-            count_ingress = controllers[node2].register_read("ingress_counter_inactive", index=port2)
+                try:
+                    # Read inactive counters
+                    egress_counter = controllers[switch].register_read("egress_counter_inactive", index=port_out)
+                    ingress_counter = controllers[neighbor].register_read("ingress_counter_inactive", index=port_in)
 
-            if count_egress != count_ingress:
-                print(f"Packet loss detected: {node1} (port {port1}) -> {node2} (port {port2})")
-            else:
-                print(f"No packet loss: {node1} (port {port1}) -> {node2} (port {port2})")
-        except Exception as e:
-            print(f"Error reading counters for link {node1} -> {node2}: {e}")
+                    # Compare counters to detect failure
+                    if egress_counter != ingress_counter:
+                        print(f"Packet loss detected: {switch} (port {port_out}) -> {neighbor} (port {port_in})")
+                    else:
+                        print(f"No packet loss: {switch} (port {port_out}) -> {neighbor} (port {port_in})")
+                except Exception as e:
+                    print(f"Error reading counters for link {switch} -> {neighbor}: {e}")
+
 
 def switch_counters():
-    for p4switch in controllers:
+    for switch in controllers:
         try:
-            controllers[p4switch].register_write("counter_index", index=0, value=1)
-            print(f"Switched counters on {p4switch}")
+            controllers[switch].register_write("counter_index", index=0, value=1)
+            print(f"Switched counters on {switch}")
         except Exception as e:
-            print(f"Error switching counters on {p4switch}: {e}")
+            print(f"Error switching counters on {switch}: {e}")
 
 
 def print_link(node1, node2):
