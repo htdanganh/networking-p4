@@ -28,7 +28,7 @@ control MyIngress(inout headers hdr,
     register<bit<32>>(2) ingress_counters_0;
     register<bit<32>>(2) ingress_counters_1;
     
-    // Register to track which counter set is active
+    // Register to track which counter set is active (still 1 bit in register)
     register<bit<1>>(1) active_counter_register;
 
     action forward(bit<9> egress_port){
@@ -51,11 +51,14 @@ control MyIngress(inout headers hdr,
         // Read which counter is currently active
         bit<1> active_counter;
         active_counter_register.read(active_counter, 0);
-        meta.active_counter = active_counter;
+        
+        // Cast to 2 bits for metadata
+        meta.active_counter = (bit<2>)active_counter;
         
         // Calculate port index (0-based)
         meta.ingress_port_index = (bit<32>)(standard_metadata.ingress_port - 1);
         
+        // Increment the appropriate counter based on active counter
         if (active_counter == 0) {
             bit<32> count;
             ingress_counters_0.read(count, meta.ingress_port_index);
@@ -71,7 +74,6 @@ control MyIngress(inout headers hdr,
         repeater.apply();
     }
 }
-
 
 /*************************************************************************
 ****************  E G R E S S   P R O C E S S I N G   *******************
@@ -90,7 +92,7 @@ control MyEgress(inout headers hdr,
         meta.egress_port_index = (bit<32>)(standard_metadata.egress_port - 1);
         
         // Increment the appropriate counter based on active counter
-        if (meta.active_counter == 0) {
+        if ((bit<1>)meta.active_counter == 0) {
             bit<32> count;
             egress_counters_0.read(count, meta.egress_port_index);
             count = count + 1;
@@ -102,6 +104,7 @@ control MyEgress(inout headers hdr,
             egress_counters_1.write(meta.egress_port_index, count);
         }
 
+        // Set the ecn field (already 2 bits from metadata)
         hdr.ipv4.ecn = meta.active_counter;
     }
 }
@@ -111,7 +114,7 @@ control MyEgress(inout headers hdr,
 *************************************************************************/
 
 control MyComputeChecksum(inout headers hdr, inout metadata meta) {
-    apply {
+    apply { 
         update_checksum(
             hdr.ipv4.isValid(),
             { hdr.ipv4.version,
