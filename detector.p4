@@ -56,7 +56,6 @@ control MyIngress(inout headers hdr,
         // Calculate port index (0-based)
         meta.ingress_port_index = (bit<32>)(standard_metadata.ingress_port - 1);
         
-        // Increment the appropriate counter based on active counter
         if (active_counter == 0) {
             bit<32> count;
             ingress_counters_0.read(count, meta.ingress_port_index);
