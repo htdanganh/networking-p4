@@ -24,11 +24,11 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    // Register arrays for ingress packet counting
-    register<bit<32>>(2) ingress_counters_0;
-    register<bit<32>>(2) ingress_counters_1;
+    // Register arrays for ingress packet counting - increased size to 3
+    register<bit<32>>(3) ingress_counters_0;
+    register<bit<32>>(3) ingress_counters_1;
     
-    // Register to track which counter set is active (still 1 bit in register)
+    // Register to track which counter set is active
     register<bit<1>>(1) active_counter_register;
 
     action forward(bit<9> egress_port){
@@ -83,9 +83,9 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
-    // Register arrays for egress packet counting
-    register<bit<32>>(2) egress_counters_0;
-    register<bit<32>>(2) egress_counters_1;
+    // Register arrays for egress packet counting - increased size to 3
+    register<bit<32>>(3) egress_counters_0;
+    register<bit<32>>(3) egress_counters_1;
 
     apply {
         // Calculate port index (0-based)
@@ -108,6 +108,7 @@ control MyEgress(inout headers hdr,
         hdr.ipv4.ecn = meta.active_counter;
     }
 }
+
 
 /*************************************************************************
 *************   C H E C K S U M    C O M P U T A T I O N   **************
