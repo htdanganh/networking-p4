@@ -29,6 +29,8 @@ controllers['s3'].table_add('repeater', 'forward', ['2'], ['3'])
 
 def safe_register_read(controller, register_name, index):
     try:
+        if index >= 3:
+            return 0
         value = controller.register_read(register_name, index)
         return int(value) if value is not None else 0
     except Exception as e:
@@ -40,16 +42,17 @@ def print_link_stats(s1, s2):
         s1_port = topo.node_to_node_port_num(s1, s2)
         s2_port = topo.node_to_node_port_num(s2, s1)
         
-        s1_egress_0 = safe_register_read(controllers[s1], 'egress_counters_0', s1_port - 1)
-        s1_egress_1 = safe_register_read(controllers[s1], 'egress_counters_1', s1_port - 1)
-        s2_ingress_0 = safe_register_read(controllers[s2], 'ingress_counters_0', s2_port - 1)
-        s2_ingress_1 = safe_register_read(controllers[s2], 'ingress_counters_1', s2_port - 1)
-        
-        print(f"\nLink {s1}->{s2}:")
-        print(f"  {s1} port {s1_port} egress counter 0: {s1_egress_0}")
-        print(f"  {s2} port {s2_port} ingress counter 0: {s2_ingress_0}")
-        print(f"  {s1} port {s1_port} egress counter 1: {s1_egress_1}")
-        print(f"  {s2} port {s2_port} ingress counter 1: {s2_ingress_1}")
+        if s1_port <= 3 and s2_port <= 3:
+            s1_egress_0 = safe_register_read(controllers[s1], 'egress_counters_0', s1_port - 1)
+            s1_egress_1 = safe_register_read(controllers[s1], 'egress_counters_1', s1_port - 1)
+            s2_ingress_0 = safe_register_read(controllers[s2], 'ingress_counters_0', s2_port - 1)
+            s2_ingress_1 = safe_register_read(controllers[s2], 'ingress_counters_1', s2_port - 1)
+            
+            print(f"\nLink {s1}->{s2}:")
+            print(f"  {s1} port {s1_port} egress counter 0: {s1_egress_0}")
+            print(f"  {s2} port {s2_port} ingress counter 0: {s2_ingress_0}")
+            print(f"  {s1} port {s1_port} egress counter 1: {s1_egress_1}")
+            print(f"  {s2} port {s2_port} ingress counter 1: {s2_ingress_1}")
     except Exception as e:
         print(f"Error printing link stats for {s1}->{s2}: {e}")
 
@@ -81,11 +84,13 @@ def check_failure(s1, s2, counter_idx):
 
 def reset_inactive_counters(switch, counter_idx):
     try:
-        for port in range(3):
+        port_count = 3  # Maximum number of ports
+        for port in range(port_count):
             controllers[switch].register_write(f'egress_counters_{counter_idx}', port, 0)
             controllers[switch].register_write(f'ingress_counters_{counter_idx}', port, 0)
     except Exception as e:
         print(f"Error resetting counters for switch {switch}: {e}")
+
 
 current_counter = 0
 for switch in topo.get_p4switches():
