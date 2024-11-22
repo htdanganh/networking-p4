@@ -1,6 +1,4 @@
 struct metadata {
-    bit<1> active_counter;
-    bit<9> ingress_port;
-    bit<9> egress_port;
-    bit<32> counter_value;
+    bit<32> counter_value;    // For storing counter values
+    bit<1> active_counter;    // To track which counter is active
 }
