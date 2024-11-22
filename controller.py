@@ -58,11 +58,11 @@ def check_failure(s1, s2, counter_idx):
         s2_port = topo.node_to_node_port_num(s2, s1)
         
         if counter_idx == 0:
-            s1_egress = safe_register_read(controllers[s1], 'egress_counters_0', s1_port - 1)
-            s2_ingress = safe_register_read(controllers[s2], 'ingress_counters_0', s2_port - 1)
+            s1_egress = safe_register_read(controllers[s1], 'egress_counters_0', s1_port)
+            s2_ingress = safe_register_read(controllers[s2], 'ingress_counters_0', s2_port)
         else:
-            s1_egress = safe_register_read(controllers[s1], 'egress_counters_1', s1_port - 1)
-            s2_ingress = safe_register_read(controllers[s2], 'ingress_counters_1', s2_port - 1)
+            s1_egress = safe_register_read(controllers[s1], 'egress_counters_1', s1_port)
+            s2_ingress = safe_register_read(controllers[s2], 'ingress_counters_1', s2_port)
         
         if s1_egress > 0:
             if s1_egress != s2_ingress:
@@ -103,7 +103,11 @@ while True:
         
         inactive_counter = 1 - current_counter
         for switch in topo.get_p4switches():
-            for port in range(2):
+            ports = []
+            for neighbor in topo.get_neighbors(switch):
+                ports.append(topo.node_to_node_port_num(switch, neighbor))
+            
+            for port in ports:  # Use actual port numbers
                 if inactive_counter == 0:
                     controllers[switch].register_write('egress_counters_0', port, 0)
                     controllers[switch].register_write('ingress_counters_0', port, 0)
