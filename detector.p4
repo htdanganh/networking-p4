@@ -24,19 +24,9 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    register<bit<32>>(2) ingress_counter_active; 
-    register<bit<32>>(2) ingress_counter_inactive;
-
-    action increment_ingress_counter() {
-
-        bit<32> counter_value;
-        ingress_counter_active.read(counter_value, (bit<32>)standard_metadata.ingress_port);
-        
-        counter_value = counter_value + 1;
-        ingress_counter_active.write((bit<32>)standard_metadata.ingress_port, counter_value);
-        
-        meta.ingress_counter_value = counter_value;
-    }
+    register<bit<32>>(2) ingress_counters_0;
+    register<bit<32>>(2) ingress_counters_1;
+    register<bit<1>>(1) active_counter_register;
 
     action forward(bit<9> egress_port) {
         standard_metadata.egress_spec = egress_port;
@@ -55,10 +45,22 @@ control MyIngress(inout headers hdr,
     }
 
     apply {
-        // Increment the active counter
-        increment_ingress_counter();
+        active_counter_register.read(meta.active_counter, 0);
+        
+        meta.ingress_port = standard_metadata.ingress_port;
+        
+        if (hdr.ipv4.isValid()) {
+            if (hdr.ipv4.ecn == 0) {
+                ingress_counters_0.read(meta.counter_value, (bit<32>)standard_metadata.ingress_port);
+                meta.counter_value = meta.counter_value + 1;
+                ingress_counters_0.write((bit<32>)standard_metadata.ingress_port, meta.counter_value);
+            } else {
+                ingress_counters_1.read(meta.counter_value, (bit<32>)standard_metadata.ingress_port);
+                meta.counter_value = meta.counter_value + 1;
+                ingress_counters_1.write((bit<32>)standard_metadata.ingress_port, meta.counter_value);
+            }
+        }
 
-        // Apply the repeater logic
         repeater.apply();
     }
 }
@@ -72,32 +74,30 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
-    register<bit<32>>(2) egress_counter_active; 
-    register<bit<32>>(2) egress_counter_inactive;
-
-    action increment_egress_counter() {
-        bit<32> counter_value;
-        egress_counter_active.read(counter_value, (bit<32>)standard_metadata.egress_port);
-        
-        counter_value = counter_value + 1;
-        egress_counter_active.write((bit<32>)standard_metadata.egress_port, counter_value);
-        
-        meta.egress_counter_value = counter_value;
-    }
-
-    action set_ecn() {
-        hdr.ipv4.ecn = meta.counter_index;
-    }
-
+    register<bit<32>>(2) egress_counters_0;
+    register<bit<32>>(2) egress_counters_1;
+    
     apply {
-        increment_egress_counter();
-
         if (hdr.ipv4.isValid()) {
-            set_ecn();
+            // Read active counter value
+            if (meta.active_counter == 0) {
+
+                egress_counters_0.read(meta.counter_value, (bit<32>)standard_metadata.egress_port);
+                meta.counter_value = meta.counter_value + 1;
+                egress_counters_0.write((bit<32>)standard_metadata.egress_port, meta.counter_value);
+
+                hdr.ipv4.ecn = 0;
+            } else {
+
+                egress_counters_1.read(meta.counter_value, (bit<32>)standard_metadata.egress_port);
+                meta.counter_value = meta.counter_value + 1;
+                egress_counters_1.write((bit<32>)standard_metadata.egress_port, meta.counter_value);
+
+                hdr.ipv4.ecn = 1;
+            }
         }
     }
 }
-
 
 /*************************************************************************
 *************   C H E C K S U M    C O M P U T A T I O N   **************
