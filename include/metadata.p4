@@ -1,5 +1,6 @@
 struct metadata {
-    bit<2> counter_index;
-    bit<32> ingress_counter_value;
-    bit<32> egress_counter_value;
+    bit<1> active_counter;
+    bit<9> ingress_port;
+    bit<9> egress_port;
+    bit<32> counter_value;
 }
