@@ -23,12 +23,13 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
-
-    register<bit<32>>(4) ingress_counters_0;
-    register<bit<32>>(4) ingress_counters_1;
+    
+    // Two counters for ingress pipeline for each direction
+    register<bit<32>>(2) ingress_counters_0;
+    register<bit<32>>(2) ingress_counters_1;
     register<bit<1>>(1) active_counter_register;
 
-    action forward(bit<9> egress_port) {
+    action forward(bit<9> egress_port){
         standard_metadata.egress_spec = egress_port;
     }
 
@@ -40,26 +41,27 @@ control MyIngress(inout headers hdr,
             forward;
             NoAction;
         }
-        size = 4;
+        size = 2;
         default_action = NoAction;
     }
 
     apply {
-        active_counter_register.read(meta.active_counter, 0);
-        
-        meta.ingress_port = standard_metadata.ingress_port;
-        
-        if (hdr.ipv4.isValid()) {
-            bit<32> idx = (bit<32>)standard_metadata.ingress_port;
-            if (hdr.ipv4.ecn == 0) {
-                ingress_counters_0.read(meta.counter_value, idx);
-                meta.counter_value = meta.counter_value + 1;
-                ingress_counters_0.write(idx, meta.counter_value);
-            } else {
-                ingress_counters_1.read(meta.counter_value, idx);
-                meta.counter_value = meta.counter_value + 1;
-                ingress_counters_1.write(idx, meta.counter_value);
-            }
+        // Read which counter is currently active
+        bit<1> active_counter;
+        active_counter_register.read(active_counter, 0);
+        meta.active_counter = active_counter;
+
+        // Increment the appropriate ingress counter based on port and active counter
+        if (active_counter == 0) {
+            bit<32> count;
+            ingress_counters_0.read(count, (bit<32>)(standard_metadata.ingress_port - 1));
+            count = count + 1;
+            ingress_counters_0.write((bit<32>)(standard_metadata.ingress_port - 1), count);
+        } else {
+            bit<32> count;
+            ingress_counters_1.read(count, (bit<32>)(standard_metadata.ingress_port - 1));
+            count = count + 1;
+            ingress_counters_1.write((bit<32>)(standard_metadata.ingress_port - 1), count);
         }
 
         repeater.apply();
@@ -74,24 +76,26 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-
-    register<bit<32>>(4) egress_counters_0;
-    register<bit<32>>(4) egress_counters_1;
     
+    // Two counters for egress pipeline for each direction
+    register<bit<32>>(2) egress_counters_0;
+    register<bit<32>>(2) egress_counters_1;
+
     apply {
-        if (hdr.ipv4.isValid()) {
-            bit<32> idx = (bit<32>)standard_metadata.egress_port;
-            if (meta.active_counter == 0) {
-                egress_counters_0.read(meta.counter_value, idx);
-                meta.counter_value = meta.counter_value + 1;
-                egress_counters_0.write(idx, meta.counter_value);
-                hdr.ipv4.ecn = 0;
-            } else {
-                egress_counters_1.read(meta.counter_value, idx);
-                meta.counter_value = meta.counter_value + 1;
-                egress_counters_1.write(idx, meta.counter_value);
-                hdr.ipv4.ecn = 1;
-            }
+        // Set the ECN field to indicate which counter was used
+        hdr.ipv4.ecn = meta.active_counter;
+
+        // Increment the appropriate egress counter based on port and active counter
+        if (meta.active_counter == 0) {
+            bit<32> count;
+            egress_counters_0.read(count, (bit<32>)(standard_metadata.egress_port - 1));
+            count = count + 1;
+            egress_counters_0.write((bit<32>)(standard_metadata.egress_port - 1), count);
+        } else {
+            bit<32> count;
+            egress_counters_1.read(count, (bit<32>)(standard_metadata.egress_port - 1));
+            count = count + 1;
+            egress_counters_1.write((bit<32>)(standard_metadata.egress_port - 1), count);
         }
     }
 }
