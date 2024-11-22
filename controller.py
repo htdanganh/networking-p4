@@ -40,7 +40,6 @@ def print_link_stats(s1, s2):
         s1_port = topo.node_to_node_port_num(s1, s2)
         s2_port = topo.node_to_node_port_num(s2, s1)
         
-        # Read both counter sets
         s1_egress_0 = safe_register_read(controllers[s1], 'egress_counters_0', s1_port - 1)
         s1_egress_1 = safe_register_read(controllers[s1], 'egress_counters_1', s1_port - 1)
         s2_ingress_0 = safe_register_read(controllers[s2], 'ingress_counters_0', s2_port - 1)
@@ -59,7 +58,6 @@ def check_failure(s1, s2, counter_idx):
         s1_port = topo.node_to_node_port_num(s1, s2)
         s2_port = topo.node_to_node_port_num(s2, s1)
         
-        # Read the values from both switches
         s1_egress = safe_register_read(controllers[s1], 
                                      f'egress_counters_{counter_idx}', 
                                      s1_port - 1)
@@ -67,11 +65,10 @@ def check_failure(s1, s2, counter_idx):
                                       f'ingress_counters_{counter_idx}', 
                                       s2_port - 1)
         
-        # Only check for packet loss if we've seen some traffic
         if s1_egress > 0 and s1_egress != s2_ingress:
             loss = s1_egress - s2_ingress
             loss_percentage = (loss / s1_egress * 100)
-            if loss_percentage >= 1.0:  # Only alert if loss is >= 1%
+            if loss_percentage >= 1.0: 
                 print(f"\nALERT: Packet loss detected on link {s1}->{s2}")
                 print(f"Packets sent from {s1} port {s1_port}: {s1_egress}")
                 print(f"Packets received at {s2} port {s2_port}: {s2_ingress}")
@@ -83,7 +80,7 @@ def check_failure(s1, s2, counter_idx):
 
 def reset_inactive_counters(switch, counter_idx):
     try:
-        port_count = 3  # Maximum number of ports
+        port_count = 3 
         for port in range(port_count):
             controllers[switch].register_write(f'egress_counters_{counter_idx}', port, 0)
             controllers[switch].register_write(f'ingress_counters_{counter_idx}', port, 0)
@@ -97,31 +94,26 @@ for switch in topo.get_p4switches():
 while True:
     try:
         time.sleep(1)
-        
-        # Store the current inactive counter
+
         inactive_counter = 1 - current_counter
         
-        # Check all switch-to-switch links in both directions
         switch_links = [
-            ('s1', 's2'),  # Top path
+            ('s1', 's2'),
             ('s2', 's3'),
-            ('s1', 's4'),  # Bottom path
+            ('s1', 's4'),
             ('s4', 's3')
         ]
         
-        # Check for failures using the inactive counter
         for s1, s2 in switch_links:
             check_failure(s1, s2, inactive_counter)
             check_failure(s2, s1, inactive_counter)
             print_link_stats(s1, s2)
             print_link_stats(s2, s1)
         
-        # Switch active counters
         current_counter = 1 - current_counter
         for switch in topo.get_p4switches():
             controllers[switch].register_write('active_counter_register', 0, current_counter)
         
-        # Give a small delay for counter switching to propagate
         time.sleep(0.1)
         
     except Exception as e:

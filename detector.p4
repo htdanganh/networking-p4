@@ -24,11 +24,8 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    // Register arrays for ingress packet counting - increased size to 3
     register<bit<32>>(3) ingress_counters_0;
     register<bit<32>>(3) ingress_counters_1;
-    
-    // Register to track which counter set is active
     register<bit<1>>(1) active_counter_register;
 
     action forward(bit<9> egress_port){
@@ -48,17 +45,13 @@ control MyIngress(inout headers hdr,
     }
 
     apply {
-        // Read which counter is currently active
         bit<1> active_counter;
         active_counter_register.read(active_counter, 0);
         
-        // Cast to 2 bits for metadata
         meta.active_counter = (bit<2>)active_counter;
         
-        // Calculate port index (0-based)
         meta.ingress_port_index = (bit<32>)(standard_metadata.ingress_port - 1);
         
-        // Increment the appropriate counter based on active counter
         if (active_counter == 0) {
             bit<32> count;
             ingress_counters_0.read(count, meta.ingress_port_index);
@@ -83,15 +76,12 @@ control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
 
-    // Register arrays for egress packet counting - increased size to 3
     register<bit<32>>(3) egress_counters_0;
     register<bit<32>>(3) egress_counters_1;
 
     apply {
-        // Calculate port index (0-based)
         meta.egress_port_index = (bit<32>)(standard_metadata.egress_port - 1);
         
-        // Increment the appropriate counter based on active counter
         if ((bit<1>)meta.active_counter == 0) {
             bit<32> count;
             egress_counters_0.read(count, meta.egress_port_index);
@@ -104,7 +94,6 @@ control MyEgress(inout headers hdr,
             egress_counters_1.write(meta.egress_port_index, count);
         }
 
-        // Set the ecn field (already 2 bits from metadata)
         hdr.ipv4.ecn = meta.active_counter;
     }
 }
